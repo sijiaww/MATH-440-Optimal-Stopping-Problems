@@ -38,7 +38,7 @@ for i = n:-1:1
        current_payout = exp(-(i-1)*r) * (value_tree(j,i) - c); % i - 1 because we're indexing S_0 as 1 (matlab)
        wait_expected_payout = p_u * value_tree(j,i+1) + p_d * value_tree(j+1,i+1);
        % max(current_payout, wait_expected_payout);
-       if current_payout > wait_expected_payout
+       if current_payout > wait_expected_payout % this if,else can be written as just max(_,_), but I wanted to make a decision tree 
            value_tree(j,i) = current_payout;
            decision_tree(j,i) = 2;
        else
