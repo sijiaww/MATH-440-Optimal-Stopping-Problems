@@ -19,9 +19,7 @@ We begin our exploration of optimal stopping problems by delving into the discre
 Transitioning to continuous time analysis, we expand our discussion to include advanced topics like Snell envelopes, free-boundary problems, and the guess and verify approach, alongside recalling the Feynman-Kac theorem to illustrate the deep mathematical connections within these problems.
 
 ### 3. Real World Financial Examples
-Using the tools we learned, we will then look at some real-world
-financial examples, such as pricing American options and the optimal consumption problem, perhaps
-some exotic options if time permits. And try to solve these examples explicitly and understand how to
-make timely decisions under uncertainty in finance.
+Using the tools we learned, we will then look at some real-world financial examples, such as pricing American options and the optimal consumption problem, perhaps
+some exotic options if time permits. And try to solve these examples explicitly and understand how to make timely decisions under uncertainty in finance.
 
 ### 4. Numerical Experiments
