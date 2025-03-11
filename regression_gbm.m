@@ -1,6 +1,5 @@
-function option_value = regression_gbm(K, num_paths, T, dt, S_0, r, c, mu, sigma)
 
-% First we generate the prices - similar to the binomial case
+% Parameters
 K = 1.1;
 num_paths = 15;
 T = 1;
@@ -9,9 +8,10 @@ S_0 = 1;
 mu = 0.2;
 sigma = 1;
 r = 0.06;
+% Kind of regression (e.g. 1 is linear, 2 is quadratic, etc.)
 regression_degree = 2;
 
-% The price matrix used in the paper
+% The price matrix used in the paper - need to uncomment line 47 to use
 test_matrix = [
  1 1.09 1.08 1.34; 
  1 1.16 1.26 1.54; 
@@ -23,13 +23,15 @@ test_matrix = [
  1 0.88 1.22 1.34;
  ]; 
 
-% Currently set to the payoff function for a put
+% Currently set to the payoff function for a put - but you can define any
+% payoff function here
 function payoff = payoff_function(price)
     payoff = max(K - price, 0);
 end
 
+% First we generate the prices - similar to the binomial case
 
-paths = zeros(num_paths, T/dt + 1); % Need the plus 1 for S_0?
+paths = zeros(num_paths, T/dt + 1); % Need the plus 1 for S_0 (b/c 1-indexing)
 paths(:,1) = S_0;
 
 for row = 1:num_paths
@@ -56,8 +58,8 @@ for col = (dimensions(2) - 1):-1:2 % Iterate over every column except the last a
 itm_rows = find(cash_flow_matrix(:,col));
 
 X = paths(itm_rows, col);
-% Calculate Y matrix (complicated by the fact payoff could be multiple timesteps in the future)
 
+% Calculate Y matrix (complicated by the fact payoff could be multiple timesteps in the future)
 
 Y = zeros(length(itm_rows),1);
 for i = 1:length(itm_rows)
@@ -101,25 +103,13 @@ end % Big for statement
 
 
 
-
-% Use this to graph the regression line against the actual points
-%{
-hold on
-scatter(X(:,2), Y)
-yCalc = b(1) + b(2) * X(:,2);
-plot(X(:,2), yCalc)
-grid on
-%}
-
-cash_flow_matrix
-
 % Find value by discounting all cash flows to time 0 and averaging
 
 running_total = 0;
 for i = 1:num_paths
     cash_flow_location = find(cash_flow_matrix(i,2:end));
 
-    if isempty(cash_flow_location)
+    if isempty(cash_flow_location) % Will never exercise in the future
     continue
     end
 
@@ -131,4 +121,16 @@ waiting_option_value = running_total / num_paths; % Simple average
 % Determines whether we should exercise at t = 0 or hold past that
 option_value = max(cash_flow_matrix(1,1), waiting_option_value);
 
-end % End of entire function
+
+% Print the cash flow matrix & option value in terminal
+cash_flow_matrix
+option_value
+
+% Use this to graph the regression line against the actual points
+%{
+hold on
+scatter(X(:,2), Y)
+yCalc = b(1) + b(2) * X(:,2);
+plot(X(:,2), yCalc)
+grid on
+%}
