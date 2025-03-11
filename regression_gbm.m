@@ -25,7 +25,7 @@ test_matrix = [
 
 % Currently set to the payoff function for a put - but you can define any
 % payoff function here
-function payoff = payoff_function(price)
+function payoff = payoff_function(K,price)
     payoff = max(K - price, 0);
 end
 
@@ -46,7 +46,7 @@ end
 
 % paths = test_matrix; num_paths = 8;% - UNCOMMENT TO DO THE TEST FROM THE PAPER
 
-cash_flow_matrix = payoff_function(paths);
+cash_flow_matrix = payoff_function(K,paths);
 
 
 
