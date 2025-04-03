@@ -17,7 +17,7 @@ sigma = 0.2
 T = 1  
 """
 
-DEBUG = 0 
+DEBUG = 1
 
 def generate_stock_prices(num_paths : int, num_intervals : int, sigma : np.float64, mu : np.float64, initial_price : np.float64, time_frame : int) -> np.ndarray:
     # Initialize our matrix and set the first column = S0
@@ -37,6 +37,7 @@ def generate_stock_prices(num_paths : int, num_intervals : int, sigma : np.float
 
     return prices_matrix 
 
+# Get the payout for selling at time t for each path 
 def get_payout(prices : np.ndarray, time : int, value_equation : Callable[[np.float64], np.float64]) -> np.ndarray:
     curr_col = np.array(prices[:, time])
     for i in range(curr_col.shape[0]):
@@ -47,6 +48,7 @@ def get_payout(prices : np.ndarray, time : int, value_equation : Callable[[np.fl
 def hermite_features(x : np.ndarray, degree : int) -> np.ndarray: 
     return np.column_stack([hermval(x=x.flatten(), c= [0] * i + [1]) for i in range(degree + 1)])
 
+# Returns the prediction from our hermite polynomial approximation of the conditional expectation 
 def get_hermite_prediction(y_train : np.ndarray, x : np.ndarray, degree : int, value_equation : Callable[[np.float64], np.float64]):
     regr_model = make_pipeline(
         FunctionTransformer(lambda x: hermite_features(x=x, degree=degree)),
@@ -56,12 +58,31 @@ def get_hermite_prediction(y_train : np.ndarray, x : np.ndarray, degree : int, v
     #Only train the model on paths in the money 
     mask = np.array([value_equation(x[i, 0]) > 0 for i in range(x.shape[0])])
     in_the_money_x = x[mask].reshape((-1, 1))
+
+    if len(in_the_money_x.flatten()) == 0: 
+        return np.ones(y_train.shape) * np.mean(y_train)
+    
     in_the_money_y = y_train[mask].reshape((-1, 1))
 
     regr_model.fit(X=in_the_money_x, y=in_the_money_y)
     return regr_model.predict(X=x)
 
+def get_lin_reg_prediction(y_train : np.ndarray, x : np.ndarray, value_equation : Callable[[np.float64], np.float64]):
+    mask = np.array([value_equation(x[i, 0]) > 0 for i in range(x.shape[0])])
+    in_the_money_x = x[mask].reshape((-1, 1))
 
+    if len(in_the_money_x.flatten()) == 0: 
+        return np.ones(y_train.shape) * np.mean(y_train)
+    
+    in_the_money_y = y_train[mask].reshape((-1, 1))
+
+    regr_model = LinearRegression()
+    regr_model.fit(X=in_the_money_x, y=in_the_money_y)
+
+    return regr_model.predict(X=x)
+
+
+# Discounts a value
 def discount_value(val : np.float64, r : np.float64, T : np.float64) -> np.float64:
     return np.exp(-1 * r * T) * val
 
@@ -78,13 +99,17 @@ def main(S0 : int, num_paths : int, num_intervals : int, hermite_degree : int, s
 
     cash_flow_mat = np.zeros((num_paths, num_intervals))
 
+    # Gets payout for time T
     cash_flow_mat[:, num_intervals - 1] = get_payout(prices=price_mat, time=num_intervals-1, value_equation=basic_value_equation).flatten()
 
-    for t in range(num_intervals - 1, 1, -1):
+    for t in range(num_intervals - 1, 0, -1):
+
         payout = get_payout(prices=price_mat, time=t, value_equation=basic_value_equation).reshape((-1, 1))
         prev_price = price_mat[:, t-1].reshape((-1, 1))
 
+        # Gets predicted payout from waiting 
         predicted_payout = np.maximum(get_hermite_prediction(y_train=payout, x=prev_price, degree=hermite_degree, value_equation=basic_value_equation), 0).reshape((-1, 1))
+        # Gets payout for exercising today 
         exercise_payout = get_payout(prices=price_mat, time=t-1, value_equation=basic_value_equation).reshape((-1, 1))
 
         if DEBUG:
@@ -95,16 +120,20 @@ def main(S0 : int, num_paths : int, num_intervals : int, hermite_degree : int, s
             print(exercise_payout)
             print("\n")
 
-
-        for r in range(num_paths):
-            discounted_values = np.array([discount_value(val=cash_flow_mat[i], r=r, T=(dt * i - t + 1))  for i in range(t,num_intervals)])
+        # For each path 
+        for p in range(num_paths):
+            # Consider all of the values in our cash flow matrix from the future (should only be at most one non-zero entry per row) 
+            # discount it to its value today 
+            discounted_values = np.array([discount_value(val=cash_flow_mat[p, i], r=r, T=(dt * (i - t + 1)))  for i in range(t,num_intervals)])
+            # Get the best payout we can recieve by waiting 
             max_future = np.max(discounted_values)
 
-            if exercise_payout[r] >= max(discount_value(predicted_payout[r], r=r, T=dt), max_future):
-                cash_flow_mat[r, t-1] = exercise_payout[r].item()
+            # If the payout for exercising today is better than the max between our predicted payout for waiting and the maximum future payout 
+            # Then we exercise today 
+            if exercise_payout[p].item() >= max(discount_value(predicted_payout[p], r=r, T=dt), max_future):
+                cash_flow_mat[p, t-1] = exercise_payout[p].item()
                 #Zero out future values 
-                cash_flow_mat[r, t:] = np.zeros(cash_flow_mat[r, t:].shape)
-
+                cash_flow_mat[p, t:] = 0
         if DEBUG: 
             print("CASH FLOW MATRIX: \n")
             print(cash_flow_mat)
@@ -121,4 +150,4 @@ def main(S0 : int, num_paths : int, num_intervals : int, hermite_degree : int, s
 
 
 if __name__ == '__main__':
-    main(S0= 100, num_paths=5, num_intervals=4, mu=0.05, sigma=0.2, hermite_degree=3, C=1, r=0.05)
+    main(S0= 100, num_paths=10, num_intervals=5, mu=0.05, sigma=0.2, hermite_degree=3, C=1, r=0.05)
