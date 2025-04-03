@@ -59,6 +59,8 @@ def get_hermite_prediction(y_train : np.ndarray, x : np.ndarray, degree : int, v
     mask = np.array([value_equation(x[i, 0]) > 0 for i in range(x.shape[0])])
     in_the_money_x = x[mask].reshape((-1, 1))
 
+    # If we have no in the money paths to train our regression on we just take regular expectation of the payouts in the future
+    # Since we have no information to condition on 
     if len(in_the_money_x.flatten()) == 0: 
         return np.ones(y_train.shape) * np.mean(y_train)
     
